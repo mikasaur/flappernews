@@ -1,10 +1,10 @@
 var express = require('express');
 var router = express.Router();
 var mongoose = require('mongoose');
-//var Comment = mongoose.model('Comment');
-//var Post = mongoose.model('Post');
-var Comment = require('../models/Comments.js');
-var Post = require('../models/Posts.js');
+var Comment = mongoose.model('Comment');
+var Post = mongoose.model('Post');
+//var Comment = require('../models/Comments.js');
+//var Post = require('../models/Posts.js');
 
 //mongoose.model('Comment');
 //mongoose.model('Post');
