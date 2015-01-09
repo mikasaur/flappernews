@@ -8,20 +8,60 @@ angular.module('flapperNews', ['ui.router']) //first param is name of module, se
 			.state('home', {	//state is a function invocation where 1st param is name, second is obj of options
 				url: '/home',		//can look at ui.router documenation to get better understanding
 				templateUrl: '/home.html',
-				controller: 'MainCtrl'
+				controller: 'MainCtrl',
+				resolve: {
+				  postPromise: ['postsFactory', function(postsFactory){
+				    return postsFactory.getAll();
+				  }]
+				}
 			})
 			.state('posts', {
 				url: '/posts/{id}',
 				templateUrl: '/posts.html',
-				controller: 'PostsCtrl'
+				controller: 'PostsCtrl',
+				resolve: {
+					post: ['$stateParams', 'postsFactory', function($stateParams, postsFactory){
+						return postsFactory.get($stateParams.id);
+					}]
+				}
 			});
 		$urlRouterProvider.otherwise('home');
 	}
 ])
 
-.factory('postsFactory', [function(){		//first param is name of factory, second is array of dependencies (dpncy injection)
+.factory('postsFactory', ['$http', function($http){		//first param is name of factory, second is array of dependencies (dpncy injection)
 	var o = {																			//Nth item in array is function declaration
 		posts: []
+	};
+	o.getAll = function() {
+		return $http.get('/posts').success(function(data){
+			angular.copy(data, o.posts);
+		});
+	};
+	o.create = function(post) {
+		return $http.post('/posts', post).success(function(data) {
+			o.posts.push(data);
+		});
+	};
+	o.upvote = function(post) {
+		return $http.put('/posts/' + post._id + '/upvote')
+			.success(function(data){
+				post.upvotes += 1;
+			});
+	}
+	o.get = function(id) {
+		return $http.get('/posts/' + id).then(function(res){
+			return res.data;
+		});
+	};
+	o.addComment = function(id, comment) {
+		return $http.post('/posts/' + id + '/comments', comment);
+	};
+	o.upvoteComment = function(post, comment) {
+		return $http.put('/posts/' + post._id + '/comments/' + comment._id + '/upvote')
+			.success(function(data){
+				comment.upvotes += 1;
+			});
 	};
 	return o;
 }])
@@ -33,40 +73,37 @@ angular.module('flapperNews', ['ui.router']) //first param is name of module, se
 		$scope.posts = postsFactory.posts;
 		$scope.addPost = function(){
 			if(!$scope.title || $scope.title === '') { return; }
-			$scope.posts.push({
-				title: $scope.title, 
+			postsFactory.create({
+				title: $scope.title,
 				link: $scope.link,
-				upvotes: 1,
-				comments: [
-					{author: 'Joe', body: 'Cool post!', upvotes: 1},
-					{author: 'Bob', body: 'Great idea', upvotes: 1},
-				]});
+			});
 			$scope.title = '';
 			$scope.link = '';
 		};
 		$scope.incrementUpvotes = function(post) {
-			post.upvotes += 1;
+			postsFactory.upvote(post);
 		}
 	}
 ])
 
 .controller('PostsCtrl', [
 	'$scope',
-	'$stateParams',
 	'postsFactory',
-	function($scope, $stateParams, postsFactory){
-		$scope.post = postsFactory.posts[$stateParams.id];
+	'post',
+	function($scope, postsFactory, post){
+		$scope.post = post;
 		$scope.addComment = function(){
 			if($scope.body === '') { return; }
-			$scope.post.comments.push({
+			postsFactory.addComment(post._id, {
 				body: $scope.body,
 				author: 'user',
-				upvotes: 1
+			}).success(function(comment) {
+				$scope.post.comments.push(comment);
 			});
 			$scope.body = '';
 		};
 		$scope.incrementUpvotes = function(comment) {
-			comment.upvotes += 1;
+			postsFactory.upvoteComment(post, comment);
 		}
 	}
 ]);
